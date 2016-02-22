@@ -116,6 +116,14 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     end
   end
 
+  # Parallels.
+  config.vm.provider :parallels do |p, override|
+    override.vm.box = vconfig['vagrant_box']
+    p.name = vconfig['vagrant_hostname']
+    p.memory = vconfig['vagrant_memory']
+    p.cpus = vconfig['vagrant_cpus']
+  end
+
   # VMware Fusion.
   config.vm.provider :vmware_fusion do |v, override|
     # HGFS kernel module currently doesn't load correctly for native shares.
@@ -136,13 +144,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     v.customize ["modifyvm", :id, "--ioapic", "on"]
   end
 
-  # Parallels.
-  config.vm.provider :parallels do |p, override|
-    override.vm.box = vconfig['vagrant_box']
-    p.name = vconfig['vagrant_hostname']
-    p.memory = vconfig['vagrant_memory']
-    p.cpus = vconfig['vagrant_cpus']
-  end
 
   # Set the name of the VM. See: http://stackoverflow.com/a/17864388/100134
   config.vm.define vconfig['vagrant_machine_name'] do |d|

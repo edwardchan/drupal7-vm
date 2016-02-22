@@ -63,25 +63,30 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Vagrant box.
   config.vm.box = vconfig['vagrant_box']
 
-  # If hostsupdater plugin is installed, add all server names as aliases.
-  if Vagrant.has_plugin?("vagrant-hostsupdater")
-    aliases = []
-    blacklist = [config.vm.hostname, vconfig['vagrant_ip']]
-    if vconfig['drupalvm_webserver'] == "apache"
-      vconfig['apache_vhosts'].each do |host|
-        unless blacklist.include?(host['servername'])
-          aliases.push(host['servername'])
-        end
-        aliases.concat(host['serveralias'].split()) if host['serveralias']
+  # If a hostsfile manager plugin is installed, add all server names as aliases.
+  aliases = []
+  blacklist = [config.vm.hostname, vconfig['vagrant_ip']]
+  if vconfig['drupalvm_webserver'] == "apache"
+    vconfig['apache_vhosts'].each do |host|
+      unless blacklist.include?(host['servername'])
+        aliases.push(host['servername'])
       end
-    else
-      vconfig['nginx_hosts'].each do |host|
-        unless blacklist.include?(host['server_name'])
-          aliases.push(host['server_name'])
-        end
+      aliases.concat(host['serveralias'].split()) if host['serveralias']
+    end
+  else
+    vconfig['nginx_hosts'].each do |host|
+      unless blacklist.include?(host['server_name'])
+        aliases.push(host['server_name'])
       end
     end
+  end
+
+  if Vagrant.has_plugin?("vagrant-hostsupdater")
     config.hostsupdater.aliases = aliases.uniq
+  elsif Vagrant.has_plugin?("vagrant-hostmanager")
+    config.hostmanager.enabled = true
+    config.hostmanager.manage_host = true
+    config.hostmanager.aliases = aliases.uniq
   end
 
   # Synced folders.
@@ -104,17 +109,24 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Allow override of the default synced folder type.
   config.vm.synced_folder ".", "/vagrant", type: vconfig.include?('vagrant_synced_folder_default_type') ? vconfig['vagrant_default_synced_folder_type'] : 'nfs'
 
-  # Provisioning. Use ansible if it's installed on host, ansible_local if not.
+  # Provisioning. Use ansible if it's installed, JJG-Ansible-Windows if not.
   if which('ansible-playbook')
     config.vm.provision "ansible" do |ansible|
       ansible.playbook = "#{dir}/provisioning/playbook.yml"
     end
   else
-    config.vm.provision "ansible_local" do |ansible|
-      ansible.playbook = "provisioning/playbook.yml"
-      ansible.galaxy_role_file = "provisioning/requirements.yml"
+    config.vm.provision "shell" do |sh|
+      sh.path = "#{dir}/provisioning/JJG-Ansible-Windows/windows.sh"
+      sh.args = "/provisioning/playbook.yml"
     end
   end
+  # ansible_local provisioner is broken in Vagrant < 1.8.2.
+  # else
+  #   config.vm.provision "ansible_local" do |ansible|
+  #     ansible.playbook = "provisioning/playbook.yml"
+  #     ansible.galaxy_role_file = "provisioning/requirements.yml"
+  #   end
+  # end
 
   # Parallels.
   config.vm.provider :parallels do |p, override|
